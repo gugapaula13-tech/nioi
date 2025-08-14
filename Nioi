@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador Sequencial de Imagens IA</title>
+<style>
+body { font-family: sans-serif; margin:0; padding:0; background:#f9fafb; color:#111; }
+header { background:#fff; padding:10px 20px; border-bottom:1px solid #ccc; position:sticky; top:0; }
+main { max-width: 900px; margin:auto; padding:20px; display:flex; gap:20px; flex-wrap:wrap; }
+textarea { width:100%; height:100px; padding:10px; font-size:16px; border-radius:8px; border:1px solid #ccc; resize:none; }
+.frame { width:100px; height:60px; object-fit:cover; border:1px solid #ccc; border-radius:6px; margin:2px; cursor:pointer; }
+.frame.current { border:2px solid #007bff; }
+.frames-container { display:flex; flex-wrap:wrap; margin-top:10px; }
+.image-display { width:100%; max-height:400px; object-fit:cover; border:1px solid #ccc; border-radius:8px; margin-top:10px; }
+.info { margin-top:5px; font-size:14px; color:#555; }
+button { padding:5px 10px; border-radius:6px; border:none; background:#007bff; color:#fff; cursor:pointer; margin-top:5px; }
+button:hover { background:#0056b3; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gerador Sequencial de Imagens IA</h1>
+</header>
+
+<main>
+  <div style="flex:1 1 300px;">
+    <label>Digite seu texto:</label>
+    <textarea id="textInput" placeholder="Cada letra altera a imagem incrementalmente..."></textarea>
+    <div class="info" id="charCount">0 caracteres</div>
+    <div class="info" id="typingTime">0s digitando</div>
+    <button id="clearBtn">Limpar</button>
+    <button id="playBtn">▶ Play</button>
+    <button id="pauseBtn">⏸ Pause</button>
+  </div>
+
+  <div style="flex:2 1 500px;">
+    <img id="currentImage" class="image-display" src="" alt="Frame atual">
+    <div class="frames-container" id="framesContainer"></div>
+  </div>
+</main>
+
+<script>
+const textInput = document.getElementById('textInput');
+const charCount = document.getElementById('charCount');
+const typingTimeEl = document.getElementById('typingTime');
+const framesContainer = document.getElementById('framesContainer');
+const currentImage = document.getElementById('currentImage');
+const clearBtn = document.getElementById('clearBtn');
+const playBtn = document.getElementById('playBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+
+let frames = [];
+let typingStartTime = 0;
+let lastTypingTime = 0;
+let lastLength = 0;
+let isGenerating = false;
+let autoPlayInterval = null;
+
+// ==================== CONFIGURE SUA CHAVE DA OPENAI AQUI ====================
+const OPENAI_API_KEY = "SUA_CHAVE_DE_API";
+// ==========================================================================
+
+// Atualiza contador de caracteres e tempo
+function updateTyping() {
+  const text = textInput.value;
+  charCount.textContent = text.length + ' caracteres';
+  if(text.length>0 && typingStartTime===0) typingStartTime = Date.now();
+  if(text.length>0) lastTypingTime = Date.now();
+}
+
+setInterval(() => {
+  if(typingStartTime>0){
+    const seconds = Math.floor((lastTypingTime - typingStartTime)/1000);
+    typingTimeEl.textContent = seconds+'s digitando';
+  }
+  if(lastTypingTime && (Date.now() - lastTypingTime > 2000)){
+    typingStartTime = 0;
+    lastTypingTime = 0;
+  }
+}, 500);
+
+// ==================== Função para gerar imagem incremental ====================
+async function generateImageIncremental(prompt, previousImage=null){
+  try{
+    const body = {
+      model: "gpt-image-1",
+      prompt: prompt,
+      size: "512x512"
+    };
+    if(previousImage) body.user = "IncrementalFrame"; // Placeholder para lógica incremental
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":`Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    return data.data[0].url;
+  }catch(err){
+    console.error(err);
+    alert("Erro ao gerar imagem incremental.");
+    return null;
+  }
+}
+
+// ==================== Checa nova letra e gera imagem ====================
+async function checkNewLetter(){
+  const text = textInput.value;
+  const diff = text.length - lastLength;
+  if(diff===1 && text.length>0 && !isGenerating){
+    isGenerating = true;
+    const previousImage = frames.length>0 ? frames[frames.length-1].url : null;
+    const prompt = frames.length>0 ? 
+      `Mantenha elementos anteriores e adicione a nova letra: "${text}"` :
+      `Desenho digital detalhado representando: "${text}" em estilo cartoon coeso`;
+    const imgUrl = await generateImageIncremental(prompt, previousImage);
+    if(imgUrl){
+      frames.push({url: imgUrl, step: frames.length+1});
+      renderFrames();
+    }
+    isGenerating = false;
+  }
+  lastLength = text.length;
+}
+
+// ==================== Renderiza frames ====================
+function renderFrames(){
+  framesContainer.innerHTML = '';
+  frames.forEach((f, idx)=>{
+    const img = document.createElement('img');
+    img.src = f.url;
+    img.className = 'frame'+(idx===frames.length-1?' current':'');
+    img.title = 'Frame #'+f.step;
+    img.onclick = () => {
+      currentImage.src = f.url;
+      document.querySelectorAll('.frame').forEach(fr=>fr.classList.remove('current'));
+      img.classList.add('current');
+    };
+    framesContainer.appendChild(img);
+  });
+  if(frames.length>0) currentImage.src = frames[frames.length-1].url;
+}
+
+// ==================== Autoplay ====================
+function playFrames(){
+  if(autoPlayInterval) return;
+  let idx=0;
+  autoPlayInterval=setInterval(()=>{
+    if(frames.length===0) return;
+    currentImage.src = frames[idx].url;
+    document.querySelectorAll('.frame').forEach(fr=>fr.classList.remove('current'));
+    document.querySelectorAll('.frame')[idx].classList.add('current');
+    idx = (idx+1)%frames.length;
+  }, 800);
+}
+
+function pauseFrames(){
+  clearInterval(autoPlayInterval);
+  autoPlayInterval = null;
+}
+
+// ==================== Eventos ====================
+textInput.addEventListener('input', ()=>{
+  updateTyping();
+  checkNewLetter();
+});
+
+clearBtn.addEventListener('click', ()=>{
+  textInput.value='';
+  frames=[];
+  lastLength=0;
+  currentImage.src='';
+  framesContainer.innerHTML='';
+  charCount.textContent='0 caracteres';
+  typingTimeEl.textContent='0s digitando';
+  typingStartTime=0;
+  lastTypingTime=0;
+  pauseFrames();
+});
+
+playBtn.addEventListener('click', playFrames);
+pauseBtn.addEventListener('click', pauseFrames);
+
+</script>
+
+</body>
+</html>
