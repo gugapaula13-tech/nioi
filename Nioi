@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gerador Sequencial de Imagens IA</title>
+theme: jekyll-theme-minimal
+title: Octocat's homepage
+description: Bookmark this to keep an eye on my project updates!
 <style>
 body { font-family: sans-serif; margin:0; padding:0; background:#f9fafb; color:#111; }
 header { background:#fff; padding:10px 20px; border-bottom:1px solid #ccc; position:sticky; top:0; }
