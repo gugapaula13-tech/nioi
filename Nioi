@@ -61,7 +61,7 @@ let isGenerating = false;
 let autoPlayInterval = null;
 
 // ==================== CONFIGURE SUA CHAVE DA OPENAI AQUI ====================
-const OPENAI_API_KEY = "SUA_CHAVE_DE_API";
+const OPENAI_API_KEY = "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";
 // ==========================================================================
 
 // Atualiza contador de caracteres e tempo
